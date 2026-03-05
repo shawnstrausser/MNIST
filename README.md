@@ -85,12 +85,14 @@ MNIST/
   data/MNIST/raw/        — Raw MNIST data files (60k train + 10k test images)
   models/
     simple_fc.py         — Simple 3-layer feedforward network (784 → 128 → 64 → 10)
+    cnn.py               — Convolutional neural network (~99% accuracy)
     registry.py          — Model lookup table (add future models here)
   training/
     trainer.py           — Training loop: feed data, measure error, adjust weights
   evaluation/
     evaluate.py          — Test loop: measure accuracy on unseen data
-  experiments/           — Saved model weights (.pt files)
+    visualize.py         — Confusion matrix + sample prediction visualizations
+  experiments/           — Saved model weights (.pt files) + visualization PNGs
   utils/
     data.py              — Data loading + image transforms
 ```
@@ -99,7 +101,7 @@ MNIST/
 
 ```bash
 # Install dependencies
-pip install torch torchvision
+pip install torch torchvision matplotlib scikit-learn
 
 # Train the model
 cd Desktop/MNIST
@@ -122,7 +124,18 @@ Model saved to experiments/simple_fc.pt
 
 - **Loss** goes down each epoch (model is making fewer mistakes)
 - **Accuracy** goes up each epoch (model is guessing more digits correctly)
-- Final test accuracy ~97% for the simple model
+- Final test accuracy ~97% for the simple FC model, ~99% for the CNN
+
+## Visualizations
+
+After training, generate a confusion matrix and sample predictions grid:
+
+```bash
+python -m evaluation.visualize             # uses default model from config
+python -m evaluation.visualize --model cnn # specify model
+```
+
+Outputs are saved to `experiments/` as PNG files.
 
 ## Key Concepts
 
