@@ -14,8 +14,8 @@ def get_transforms():
 def get_data_loaders():
     transform = get_transforms()
 
-    train_dataset = datasets.MNIST(DATA_DIR, train=True, transform=transform)
-    test_dataset = datasets.MNIST(DATA_DIR, train=False, transform=transform)
+    train_dataset = datasets.MNIST(DATA_DIR, train=True, transform=transform, download=True)
+    test_dataset = datasets.MNIST(DATA_DIR, train=False, transform=transform, download=True)
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
