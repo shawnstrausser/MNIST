@@ -65,8 +65,9 @@ def get_all_predictions(model, test_loader, device):
     )
 
 
-def plot_confusion_matrix(true_labels, pred_labels, model_name):
-    """Show a confusion matrix heatmap and save to experiments/."""
+def plot_confusion_matrix(true_labels, pred_labels, model_name, save_dir=None):
+    """Show a confusion matrix heatmap and save to save_dir (or experiments/)."""
+    save_dir = save_dir or EXPERIMENTS_DIR
     sns.set_theme(style="white")
     cm = confusion_matrix(true_labels, pred_labels)
 
@@ -77,14 +78,15 @@ def plot_confusion_matrix(true_labels, pred_labels, model_name):
     ax.set_ylabel("True")
     ax.set_title(f"Confusion Matrix — {model_name}")
 
-    save_path = EXPERIMENTS_DIR / f"{model_name}_confusion_matrix.png"
+    save_path = save_dir / f"{model_name}_confusion_matrix.png"
     fig.savefig(save_path, bbox_inches="tight", dpi=150)
     print(f"Saved confusion matrix to {save_path}")
     plt.close(fig)
 
 
-def plot_sample_predictions(images, true_labels, pred_labels, model_name, n=25):
+def plot_sample_predictions(images, true_labels, pred_labels, model_name, n=25, save_dir=None):
     """Show a grid of sample predictions (green=correct, red=wrong)."""
+    save_dir = save_dir or EXPERIMENTS_DIR
     cols = 5
     rows = n // cols
 
@@ -108,7 +110,7 @@ def plot_sample_predictions(images, true_labels, pred_labels, model_name, n=25):
         color = "green" if true == pred else "red"
         ax.set_title(f"T:{true} P:{pred}", color=color, fontsize=10)
 
-    save_path = EXPERIMENTS_DIR / f"{model_name}_samples.png"
+    save_path = save_dir / f"{model_name}_samples.png"
     fig.savefig(save_path, bbox_inches="tight", dpi=150)
     print(f"Saved sample predictions to {save_path}")
     plt.close(fig)

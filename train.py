@@ -20,7 +20,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import torch
 
-from config import DEVICE, EPOCHS, LEARNING_RATE, MODEL_NAME, EXPERIMENTS_DIR, BATCH_SIZE
+from config import DEVICE, EPOCHS, LEARNING_RATE, MODEL_NAME, EXPERIMENTS_DIR, BATCH_SIZE, get_run_dir, get_git_commit, RUNS_DIR
 from models.registry import get_model
 from training.trainer import train_one_epoch
 from evaluation.evaluate import evaluate, evaluate_detailed
@@ -71,6 +71,34 @@ def print_architecture(model, model_name):
     print(f"{'=' * 50}\n")
 
 
+def _update_run_index(metadata):
+    """Append this run to the master run index (newest first)."""
+    index_path = RUNS_DIR / "run_index.json"
+    if index_path.exists():
+        with open(index_path) as f:
+            index = json.load(f)
+    else:
+        index = {"runs": []}
+
+    entry = {
+        "id": os.path.basename(metadata["run_dir"]),
+        "model": metadata["model_name"],
+        "accuracy": metadata["final_metrics"]["accuracy"],
+        "f1_macro": metadata["final_metrics"]["f1_macro"],
+        "epochs": metadata["config"]["epochs"],
+        "timestamp": metadata["timestamp"],
+        "git_commit": metadata["git_commit"],
+        "path": metadata["run_dir"],
+    }
+
+    # Prepend (newest first)
+    index["runs"].insert(0, entry)
+
+    with open(index_path, "w") as f:
+        json.dump(index, f, indent=2)
+    print(f"Run index updated: {index_path}")
+
+
 def main():
     # Collect system info upfront
     sys_info = get_system_info()
@@ -115,12 +143,20 @@ def main():
 
     total_time = time.time() - total_start
 
-    # Save model
+    # Create timestamped run directory
+    run_dir = get_run_dir(MODEL_NAME)
+    git_commit = get_git_commit()
+    print(f"\nRun directory: {run_dir}")
+
+    # Save model to run dir (and keep a copy in experiments/ for backward compat)
     EXPERIMENTS_DIR.mkdir(exist_ok=True)
-    save_path = EXPERIMENTS_DIR / f"{MODEL_NAME}.pt"
+    save_path = run_dir / "model.pt"
     torch.save(model.state_dict(), save_path)
+    # Also save to flat experiments/ for backward compatibility
+    compat_path = EXPERIMENTS_DIR / f"{MODEL_NAME}.pt"
+    torch.save(model.state_dict(), compat_path)
     model_size_bytes = save_path.stat().st_size
-    print(f"\nModel saved to {save_path}")
+    print(f"Model saved to {save_path}")
 
     # Show architecture
     print_architecture(model, MODEL_NAME)
@@ -153,6 +189,8 @@ def main():
     metadata = {
         "model_name": MODEL_NAME,
         "timestamp": datetime.now().isoformat(),
+        "git_commit": git_commit,
+        "run_dir": str(run_dir),
         "config": {
             "device": DEVICE,
             "epochs": EPOCHS,
@@ -174,10 +212,19 @@ def main():
         },
     }
 
-    meta_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_metadata.json"
+    # Save to run dir
+    meta_path = run_dir / "metadata.json"
     with open(meta_path, "w") as f:
         json.dump(metadata, f, indent=2)
     print(f"Metadata saved to {meta_path}")
+
+    # Also save to flat experiments/ for backward compatibility
+    compat_meta = EXPERIMENTS_DIR / f"{MODEL_NAME}_metadata.json"
+    with open(compat_meta, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    # Update run index
+    _update_run_index(metadata)
 
     # Plot training curves (optional — requires seaborn)
     try:
@@ -212,7 +259,7 @@ def main():
         fig.suptitle(f"Training Curves — {MODEL_NAME}", fontsize=14, y=1.02)
         fig.tight_layout()
 
-        plot_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_training_curves.png"
+        plot_path = run_dir / f"{MODEL_NAME}_training_curves.png"
         fig.savefig(plot_path, bbox_inches="tight", dpi=150)
         plt.close(fig)
         print(f"Training curves saved to {plot_path}")
