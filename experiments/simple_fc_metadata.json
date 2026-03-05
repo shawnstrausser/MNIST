@@ -1,28 +1,60 @@
 {
   "model_name": "simple_fc",
-  "timestamp": "2026-03-05T10:25:28.088987",
+  "timestamp": "2026-03-05T10:51:09.636080",
   "config": {
     "device": "cpu",
-    "epochs": 1,
+    "epochs": 5,
     "batch_size": 64,
     "learning_rate": 0.001,
     "optimizer": "Adam"
   },
   "model_params": 109386,
-  "total_training_time_sec": 35.81,
-  "avg_epoch_time_sec": 35.81,
-  "final_train_loss": 0.2662,
-  "final_train_acc": 0.9203,
-  "final_test_loss": 0.1343,
-  "final_test_acc": 0.9576,
+  "total_training_time_sec": 189.83,
+  "avg_epoch_time_sec": 37.97,
+  "final_train_loss": 0.0505,
+  "final_train_acc": 0.9831,
+  "final_test_loss": 0.0964,
+  "final_test_acc": 0.9698,
   "epochs": [
     {
       "epoch": 1,
-      "train_loss": 0.2662,
-      "train_acc": 0.9203,
-      "test_loss": 0.1343,
-      "test_acc": 0.9576,
-      "epoch_time_sec": 35.81
+      "train_loss": 0.2774,
+      "train_acc": 0.9184,
+      "test_loss": 0.1336,
+      "test_acc": 0.9598,
+      "epoch_time_sec": 38.59
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.1143,
+      "train_acc": 0.9649,
+      "test_loss": 0.0974,
+      "test_acc": 0.9685,
+      "epoch_time_sec": 40.89
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.0814,
+      "train_acc": 0.9747,
+      "test_loss": 0.1064,
+      "test_acc": 0.9664,
+      "epoch_time_sec": 36.89
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.0618,
+      "train_acc": 0.9805,
+      "test_loss": 0.0962,
+      "test_acc": 0.9716,
+      "epoch_time_sec": 34.62
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.0505,
+      "train_acc": 0.9831,
+      "test_loss": 0.0964,
+      "test_acc": 0.9698,
+      "epoch_time_sec": 38.83
     }
   ]
 }

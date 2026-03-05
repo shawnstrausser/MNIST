@@ -2,7 +2,7 @@
 
 ## Quick Summary
 
-`python train.py` is the main entry point. It loads settings, builds a model, trains it on 60k images, tests it on 10k images, saves the trained weights, saves training metadata to JSON, and plots a loss curve.
+`python train.py` is the main entry point. It loads settings, builds a model, trains it on 60k images, tests it on 10k images, saves the trained weights, prints an ASCII architecture diagram, saves training metadata to JSON, plots training curves (loss + accuracy), and logs the run to `output.log`.
 
 ## Step by Step
 
@@ -76,19 +76,47 @@ A JSON file is saved to `experiments/simple_fc_metadata.json` with:
 - Final train/test loss and accuracy
 - Per-epoch breakdown (loss, accuracy, time for each epoch)
 
-### 9. Loss curve gets plotted
+### 9. Architecture diagram prints to terminal
 
-A PNG chart is saved to `experiments/simple_fc_loss_curve.png` showing train loss and test loss across all epochs. This makes it easy to spot overfitting (when train loss keeps dropping but test loss starts rising).
+An ASCII diagram of the model architecture is printed, showing each layer, its shape, and parameter count:
+
+```
+==================================================
+  Architecture: simple_fc
+==================================================
+  ├─ Flatten
+  ├─ Linear  [784 -> 128]  (100,480 params)
+  ├─ ReLU
+  ├─ Linear  [128 -> 64]  (8,256 params)
+  ├─ ReLU
+  └─ Linear  [64 -> 10]  (650 params)
+  ──────────────────────────────────────────────
+  Total parameters: 109,386
+==================================================
+```
+
+### 10. Training curves get plotted
+
+A PNG chart is saved to `experiments/simple_fc_training_curves.png` with two side-by-side plots:
+- **Left:** Train loss vs test loss across all epochs (spot overfitting here)
+- **Right:** Train accuracy vs test accuracy across all epochs
+
+Uses seaborn for clean styling. If seaborn isn't installed, this step is skipped gracefully.
+
+### 11. Run gets logged to output.log
+
+A structured entry is appended to `output.log` in the project root with the timestamp, config, final metrics, and per-epoch breakdown. On error, the full traceback is logged instead.
 
 ## Outputs
 
-After training completes, three files are saved to `experiments/`:
+After training completes, these files are saved/updated:
 
 | File | Contents |
 |------|----------|
-| `simple_fc.pt` | Trained model weights (430 KB) |
-| `simple_fc_metadata.json` | Training metadata (config, timing, per-epoch stats) |
-| `simple_fc_loss_curve.png` | Loss curve chart (train vs test) |
+| `experiments/simple_fc.pt` | Trained model weights (430 KB) |
+| `experiments/simple_fc_metadata.json` | Training metadata (config, timing, per-epoch stats) |
+| `experiments/simple_fc_training_curves.png` | Loss + accuracy curves (side-by-side) |
+| `output.log` | Append-only run log with timestamps and metrics |
 
 ## Total Time
 

@@ -43,7 +43,7 @@ Actual  2 [.  .  ■  .  .  .  .  .  .  .]
 
 A 10x10 grid. Each cell shows how many times a digit (row) was predicted as another digit (column). A perfect model = bright diagonal, everything else dark. Off-diagonal bright spots reveal which digits get confused (e.g., 4s and 9s, 3s and 8s).
 
-Uses `sklearn.metrics.confusion_matrix` + `matplotlib` to render.
+Uses `sklearn.metrics.confusion_matrix` + `seaborn.heatmap` to render.
 
 Saved to: `experiments/<model_name>_confusion_matrix.png`
 
@@ -59,20 +59,25 @@ Uses a fixed random seed (42) so the same images are selected every time.
 
 Saved to: `experiments/<model_name>_samples.png`
 
-### 6. Done
+### 6. Run gets logged to output.log
+
+A structured entry is appended to `output.log` with the timestamp, model name, test accuracy, and paths to saved files. On error, the full traceback is logged instead.
+
+### 7. Done
 
 ```
 Generating visualizations for: simple_fc
 Test accuracy: 0.9723
 Saved confusion matrix to experiments/simple_fc_confusion_matrix.png
 Saved sample predictions to experiments/simple_fc_samples.png
+Run logged to output.log
 Done!
 ```
 
 ## Dependencies
 
 This is the only file that requires extra packages beyond PyTorch:
-- `matplotlib` — for rendering the plots
+- `seaborn` — for rendering the heatmap (pulls in matplotlib)
 - `scikit-learn` — for computing the confusion matrix
 
-Install with: `pip install matplotlib scikit-learn`
+Install with: `pip install seaborn scikit-learn`

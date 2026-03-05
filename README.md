@@ -21,10 +21,11 @@ MNIST/
     trainer.py           — Training loop: feed data, measure error, adjust weights
   evaluation/
     evaluate.py          — Test loop: measure accuracy on unseen data
-    visualize.py         — Confusion matrix + sample prediction visualizations
+    visualize.py         — Confusion matrix + sample prediction visualizations (seaborn)
   experiments/           — Saved outputs: model weights (.pt), metadata (.json), charts (.png)
   utils/
     data.py              — Data loading + image transforms
+    output_log.py        — Structured run logging (appends to output.log)
   docs/
     train.md             — Deep dive: what happens when you run train.py
     evaluate.md          — Deep dive: what happens when you run evaluate.py
@@ -35,7 +36,7 @@ MNIST/
 
 ```bash
 # Install dependencies
-pip install torch torchvision matplotlib scikit-learn
+pip install torch torchvision seaborn scikit-learn
 
 # Train the model
 cd Desktop/MNIST
@@ -62,13 +63,31 @@ Epoch 1/5 | Train Loss: 0.2653 Acc: 0.9217 | Test Loss: 0.1264 Acc: 0.9614 | Tim
 Epoch 5/5 | Train Loss: 0.0500 Acc: 0.9837 | Test Loss: 0.0891 Acc: 0.9752 | Time: 38.7s
 
 Model saved to experiments/simple_fc.pt
+
+==================================================
+  Architecture: simple_fc
+==================================================
+  ├─ Flatten
+  ├─ Linear  [784 -> 128]  (100,480 params)
+  ├─ ReLU
+  ├─ Linear  [128 -> 64]  (8,256 params)
+  ├─ ReLU
+  └─ Linear  [64 -> 10]  (650 params)
+  ──────────────────────────────────────────────
+  Total parameters: 109,386
+==================================================
+
 Metadata saved to experiments/simple_fc_metadata.json
-Loss curve saved to experiments/simple_fc_loss_curve.png
+Training curves saved to experiments/simple_fc_training_curves.png
+Run logged to output.log
 ```
 
 - **Loss** goes down each epoch (model is making fewer mistakes)
 - **Accuracy** goes up each epoch (model is guessing more digits correctly)
 - Final test accuracy ~97% for the simple FC model, ~99% for the CNN
+- **Architecture diagram** prints to terminal after training
+- **Training curves** (loss + accuracy side-by-side) saved as PNG
+- **Run log** appended to `output.log` with timestamps, config, and results
 
 ## Key Concepts
 
@@ -110,7 +129,11 @@ Every runnable file imports constants from config.py. Here's who imports what, a
      │ Output:          │                  │  - terminal text      │
      │  - .pt model     │                  │    (loss + accuracy)  │
      │  - .json metadata│                  └───────────────────────┘
-     │  - loss curve PNG│
+     │  - training      │
+     │    curves PNG    │
+     │  - architecture  │
+     │    (terminal)    │
+     │  - output.log    │
      └────────┬─────────┘
               │                            ┌───────────────────────┐
               │   saved to                 │  visualize.py         │
@@ -122,8 +145,9 @@ Every runnable file imports constants from config.py. Here's who imports what, a
      │  cnn.pt         │                  │  - experiments/*.pt   │
      │  *_confusion.png│ <── saved by ──  │  - --model CLI flag   │
      │  *_samples.png  │                  │                       │
-     └──────────────────┘                  │ Output:               │
-                                           │  - 2 PNG files        │
+     │  *_training_    │                  │ Output:               │
+     │    curves.png   │                  │  - 2 PNG files        │
+     └──────────────────┘                  │  - output.log entry   │
                                            └───────────────────────┘
 ```
 
@@ -143,10 +167,13 @@ There are **3 entry points** you can run. Each one imports from config.py:
             │   ├─ evaluate.py tests on 10k images (live progress bar)
             │   └─ Prints: loss ↓ accuracy ↑ time ⏱
             │
+            ├─ Prints ASCII architecture diagram to terminal
+            │
             └─ Saves to experiments/:
-                ├─ simple_fc.pt              (trained model weights)
-                ├─ simple_fc_metadata.json   (config, timing, per-epoch stats)
-                └─ simple_fc_loss_curve.png  (train vs test loss chart)
+                ├─ simple_fc.pt                    (trained model weights)
+                ├─ simple_fc_metadata.json         (config, timing, per-epoch stats)
+                └─ simple_fc_training_curves.png   (loss + accuracy side-by-side)
+            └─ Appends run to output.log
 
 
 2. python -m evaluation.evaluate            (TEST ONLY — no training)
@@ -272,5 +299,12 @@ Generates two PNG visualizations after training:
 How it works:
 - Loads a trained model from `experiments/`
 - Runs all test images through it to collect predictions
-- Uses matplotlib + scikit-learn to generate the plots
+- Uses seaborn + scikit-learn to generate the plots
 - Saves PNGs to `experiments/`
+- Appends run to `output.log`
+
+### utils/output_log.py — Run Logging
+
+Every time train.py, evaluate, or visualize runs, it appends a structured entry to `output.log` in the project root. Each entry includes a timestamp, the command that ran, success/error status, and a summary of key metrics. This gives you a single file to check what happened, when, and whether it worked.
+
+The log is append-only — newest entries at the bottom. Added to `.gitignore` so each machine has its own local log.

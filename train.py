@@ -28,6 +28,47 @@ from utils.data import get_data_loaders
 from utils.output_log import log_run
 
 
+def print_architecture(model, model_name):
+    """Print a clean ASCII diagram of the model architecture to the terminal."""
+    print(f"\n{'=' * 50}")
+    print(f"  Architecture: {model_name}")
+    print(f"{'=' * 50}")
+
+    layers = []
+    for name, module in model.named_modules():
+        if name == "":
+            continue
+        # Skip container modules (Sequential, etc.)
+        if len(list(module.children())) > 0:
+            continue
+
+        params = sum(p.numel() for p in module.parameters())
+        layer_type = module.__class__.__name__
+
+        if hasattr(module, "in_features"):
+            shape = f"{module.in_features} -> {module.out_features}"
+        elif hasattr(module, "in_channels"):
+            shape = f"{module.in_channels}ch -> {module.out_channels}ch, {module.kernel_size}"
+        elif isinstance(module, torch.nn.MaxPool2d):
+            shape = f"kernel={module.kernel_size}"
+        else:
+            shape = ""
+
+        layers.append((layer_type, shape, params))
+
+    total_params = sum(p.numel() for p in model.parameters())
+
+    for i, (ltype, shape, params) in enumerate(layers):
+        prefix = "  ├─" if i < len(layers) - 1 else "  └─"
+        param_str = f"  ({params:,} params)" if params > 0 else ""
+        shape_str = f"  [{shape}]" if shape else ""
+        print(f"{prefix} {ltype}{shape_str}{param_str}")
+
+    print(f"  {'─' * 46}")
+    print(f"  Total parameters: {total_params:,}")
+    print(f"{'=' * 50}\n")
+
+
 def main():
     # print out the config details:
     print(f"Model: {MODEL_NAME} | Device: {DEVICE} | Epochs: {EPOCHS}")
@@ -71,6 +112,9 @@ def main():
     torch.save(model.state_dict(), save_path)
     print(f"\nModel saved to {save_path}")
 
+    # Show architecture
+    print_architecture(model, MODEL_NAME)
+
     # Save training metadata
     metadata = {
         "model_name": MODEL_NAME,
@@ -97,7 +141,7 @@ def main():
         json.dump(metadata, f, indent=2)
     print(f"Metadata saved to {meta_path}")
 
-    # Plot loss curves (optional — requires seaborn)
+    # Plot training curves (optional — requires seaborn)
     try:
         import seaborn as sns
         import matplotlib.pyplot as plt
@@ -107,20 +151,35 @@ def main():
         epochs_range = [e["epoch"] for e in epoch_log]
         train_losses = [e["train_loss"] for e in epoch_log]
         test_losses = [e["test_loss"] for e in epoch_log]
+        train_accs = [e["train_acc"] for e in epoch_log]
+        test_accs = [e["test_acc"] for e in epoch_log]
 
-        fig, ax = plt.subplots(figsize=(8, 5))
-        sns.lineplot(x=epochs_range, y=train_losses, marker="o", label="Train Loss", ax=ax)
-        sns.lineplot(x=epochs_range, y=test_losses, marker="o", label="Test Loss", ax=ax)
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.set_title(f"Loss Curve — {MODEL_NAME}")
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
-        plot_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_loss_curve.png"
+        # Loss curve
+        sns.lineplot(x=epochs_range, y=train_losses, marker="o", label="Train Loss", ax=ax1)
+        sns.lineplot(x=epochs_range, y=test_losses, marker="o", label="Test Loss", ax=ax1)
+        ax1.set_xlabel("Epoch")
+        ax1.set_ylabel("Loss")
+        ax1.set_title(f"Loss — {MODEL_NAME}")
+
+        # Accuracy curve
+        sns.lineplot(x=epochs_range, y=train_accs, marker="o", label="Train Acc", ax=ax2)
+        sns.lineplot(x=epochs_range, y=test_accs, marker="o", label="Test Acc", ax=ax2)
+        ax2.set_xlabel("Epoch")
+        ax2.set_ylabel("Accuracy")
+        ax2.set_title(f"Accuracy — {MODEL_NAME}")
+        ax2.set_ylim(0.9, 1.0)
+
+        fig.suptitle(f"Training Curves — {MODEL_NAME}", fontsize=14, y=1.02)
+        fig.tight_layout()
+
+        plot_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_training_curves.png"
         fig.savefig(plot_path, bbox_inches="tight", dpi=150)
         plt.close(fig)
-        print(f"Loss curve saved to {plot_path}")
+        print(f"Training curves saved to {plot_path}")
     except ImportError:
-        print("Skipping loss curve plot (seaborn not installed)")
+        print("Skipping training curves plot (seaborn not installed)")
 
     # Build details string for output log
     detail_lines = []
