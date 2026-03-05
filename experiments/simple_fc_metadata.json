@@ -1,0 +1,28 @@
+{
+  "model_name": "simple_fc",
+  "timestamp": "2026-03-05T10:25:28.088987",
+  "config": {
+    "device": "cpu",
+    "epochs": 1,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "optimizer": "Adam"
+  },
+  "model_params": 109386,
+  "total_training_time_sec": 35.81,
+  "avg_epoch_time_sec": 35.81,
+  "final_train_loss": 0.2662,
+  "final_train_acc": 0.9203,
+  "final_test_loss": 0.1343,
+  "final_test_acc": 0.9576,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.2662,
+      "train_acc": 0.9203,
+      "test_loss": 0.1343,
+      "test_acc": 0.9576,
+      "epoch_time_sec": 35.81
+    }
+  ]
+}

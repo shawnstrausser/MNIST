@@ -15,15 +15,22 @@ Usage:
 """
 
 import argparse
+import os
+import traceback
+
+# Fix OpenMP duplicate library crash (PyTorch + matplotlib both bundle libiomp5md.dll)
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 from config import DEVICE, MODEL_NAME, EXPERIMENTS_DIR
 from models.registry import get_model
 from utils.data import get_data_loaders
+from utils.output_log import log_run
 
 
 def load_trained_model(model_name, device):
@@ -60,11 +67,14 @@ def get_all_predictions(model, test_loader, device):
 
 def plot_confusion_matrix(true_labels, pred_labels, model_name):
     """Show a confusion matrix heatmap and save to experiments/."""
+    sns.set_theme(style="white")
     cm = confusion_matrix(true_labels, pred_labels)
-    disp = ConfusionMatrixDisplay(cm, display_labels=range(10))
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    disp.plot(ax=ax, cmap="Blues", colorbar=False)
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=range(10),
+                yticklabels=range(10), ax=ax, cbar=False, linewidths=0.5)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
     ax.set_title(f"Confusion Matrix — {model_name}")
 
     save_path = EXPERIMENTS_DIR / f"{model_name}_confusion_matrix.png"
@@ -120,11 +130,35 @@ def main():
     print(f"Test accuracy: {accuracy:.4f}")
 
     EXPERIMENTS_DIR.mkdir(exist_ok=True)
+
+    cm_path = EXPERIMENTS_DIR / f"{model_name}_confusion_matrix.png"
+    samples_path = EXPERIMENTS_DIR / f"{model_name}_samples.png"
+
     plot_confusion_matrix(true_labels, pred_labels, model_name)
     plot_sample_predictions(images, true_labels, pred_labels, model_name)
+
+    log_run(
+        command=f"python -m evaluation.visualize (model={model_name})",
+        status="SUCCESS",
+        summary={
+            "model": model_name,
+            "test_accuracy": round(float(accuracy), 4),
+            "confusion_matrix_saved": str(cm_path),
+            "sample_predictions_saved": str(samples_path),
+        },
+    )
 
     print("Done!")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        log_run(
+            command="python -m evaluation.visualize",
+            status="ERROR",
+            summary={"error": traceback.format_exc().splitlines()[-1]},
+            details=traceback.format_exc(),
+        )
+        raise

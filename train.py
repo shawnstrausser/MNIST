@@ -10,10 +10,14 @@ the final trained weights to experiments/<model_name>.pt.
 """
 
 import json
+import os
 import time
+import traceback
 from datetime import datetime
 
-import matplotlib.pyplot as plt
+# Fix OpenMP duplicate library crash (PyTorch + matplotlib both bundle libiomp5md.dll)
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 import torch
 
 from config import DEVICE, EPOCHS, LEARNING_RATE, MODEL_NAME, EXPERIMENTS_DIR, BATCH_SIZE
@@ -21,6 +25,7 @@ from models.registry import get_model
 from training.trainer import train_one_epoch
 from evaluation.evaluate import evaluate
 from utils.data import get_data_loaders
+from utils.output_log import log_run
 
 
 def main():
@@ -92,25 +97,65 @@ def main():
         json.dump(metadata, f, indent=2)
     print(f"Metadata saved to {meta_path}")
 
-    # Plot loss curves
-    epochs_range = [e["epoch"] for e in epoch_log]
-    train_losses = [e["train_loss"] for e in epoch_log]
-    test_losses = [e["test_loss"] for e in epoch_log]
+    # Plot loss curves (optional — requires seaborn)
+    try:
+        import seaborn as sns
+        import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(epochs_range, train_losses, "o-", label="Train Loss")
-    ax.plot(epochs_range, test_losses, "o-", label="Test Loss")
-    ax.set_xlabel("Epoch")
-    ax.set_ylabel("Loss")
-    ax.set_title(f"Loss Curve — {MODEL_NAME}")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+        sns.set_theme(style="darkgrid")
 
-    plot_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_loss_curve.png"
-    fig.savefig(plot_path, bbox_inches="tight", dpi=150)
-    plt.close(fig)
-    print(f"Loss curve saved to {plot_path}")
+        epochs_range = [e["epoch"] for e in epoch_log]
+        train_losses = [e["train_loss"] for e in epoch_log]
+        test_losses = [e["test_loss"] for e in epoch_log]
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        sns.lineplot(x=epochs_range, y=train_losses, marker="o", label="Train Loss", ax=ax)
+        sns.lineplot(x=epochs_range, y=test_losses, marker="o", label="Test Loss", ax=ax)
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.set_title(f"Loss Curve — {MODEL_NAME}")
+
+        plot_path = EXPERIMENTS_DIR / f"{MODEL_NAME}_loss_curve.png"
+        fig.savefig(plot_path, bbox_inches="tight", dpi=150)
+        plt.close(fig)
+        print(f"Loss curve saved to {plot_path}")
+    except ImportError:
+        print("Skipping loss curve plot (seaborn not installed)")
+
+    # Build details string for output log
+    detail_lines = []
+    for e in epoch_log:
+        detail_lines.append(
+            f"  Epoch {e['epoch']}: train_loss={e['train_loss']:.4f} "
+            f"train_acc={e['train_acc']:.4f} | "
+            f"test_loss={e['test_loss']:.4f} test_acc={e['test_acc']:.4f} "
+            f"({e['epoch_time_sec']:.1f}s)"
+        )
+
+    log_run(
+        command=f"python train.py (model={MODEL_NAME})",
+        status="SUCCESS",
+        summary={
+            "model": MODEL_NAME,
+            "epochs": EPOCHS,
+            "final_test_acc": epoch_log[-1]["test_acc"],
+            "final_test_loss": epoch_log[-1]["test_loss"],
+            "total_time_sec": round(total_time, 2),
+            "model_saved": str(save_path),
+            "metadata_saved": str(meta_path),
+        },
+        details="\n".join(detail_lines),
+    )
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        log_run(
+            command=f"python train.py (model={MODEL_NAME})",
+            status="ERROR",
+            summary={"error": traceback.format_exc().splitlines()[-1]},
+            details=traceback.format_exc(),
+        )
+        raise
