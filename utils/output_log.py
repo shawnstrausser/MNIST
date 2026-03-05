@@ -1,12 +1,11 @@
 """
 output_log.py — Centralized run log for tracking what happened and when.
 
-Every time train.py, evaluate, or visualize runs, it appends a structured
+Every time train.py, evaluate, or visualize runs, it prepends a structured
 entry to `output.log` in the project root. This gives you a single file
 to check what the last command did, what it produced, and whether it succeeded.
 
-The log is append-only so you can see history, but the most recent entry
-is always at the bottom.
+The most recent entry is always at the top — newest first.
 """
 
 import json
@@ -49,7 +48,12 @@ def log_run(command: str, status: str, summary: dict, details: str = ""):
 
     lines.append("")  # trailing newline
 
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
+    new_entry = "\n".join(lines) + "\n"
+
+    # Prepend: newest entries at the top
+    existing = ""
+    if LOG_PATH.exists():
+        existing = LOG_PATH.read_text(encoding="utf-8")
+    LOG_PATH.write_text(new_entry + existing, encoding="utf-8")
 
     print(f"Run logged to {LOG_PATH}")

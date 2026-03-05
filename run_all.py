@@ -19,10 +19,34 @@ import sys
 import time
 
 
-STEPS = [
-    ("Train", "train"),
-    ("Visualize", "visualize"),
-]
+# Estimated seconds per epoch by model (based on benchmarked runs on this machine)
+EPOCH_TIME_ESTIMATES = {
+    "simple_fc": 36,
+    "cnn": 120,
+}
+VIZ_TIME_ESTIMATE = 10  # seconds
+
+
+def estimate_pipeline_time(model_name, epochs, skip_train, skip_viz):
+    """Estimate total pipeline time based on past benchmarks."""
+    total = 0
+    breakdown = []
+
+    if not skip_train:
+        per_epoch = EPOCH_TIME_ESTIMATES.get(model_name, 60)
+        train_est = per_epoch * epochs
+        total += train_est
+        breakdown.append(f"    Train:     ~{train_est // 60}m {train_est % 60}s  ({epochs} epochs x ~{per_epoch}s/epoch)")
+    else:
+        breakdown.append("    Train:     SKIPPED")
+
+    if not skip_viz:
+        total += VIZ_TIME_ESTIMATE
+        breakdown.append(f"    Visualize: ~{VIZ_TIME_ESTIMATE}s")
+    else:
+        breakdown.append("    Visualize: SKIPPED")
+
+    return total, breakdown
 
 
 def run_step(name, cmd):
@@ -55,15 +79,29 @@ def main():
     if args.epochs:
         env_overrides["MNIST_EPOCHS"] = str(args.epochs)
 
+    # Resolve model/epochs for estimate (respect env overrides)
+    import os
+    model_name = args.model or os.environ.get("MNIST_MODEL", "simple_fc")
+    epochs = args.epochs or int(os.environ.get("MNIST_EPOCHS", 5))
+
+    # Time estimate
+    est_total, est_breakdown = estimate_pipeline_time(
+        model_name, epochs, args.skip_train, args.skip_viz
+    )
+
     # Show plan
     print("\n" + "=" * 55)
     print("  MNIST Pipeline — run_all.py")
     print("=" * 55)
+    print(f"  Model:  {model_name}")
+    print(f"  Epochs: {epochs}")
     if env_overrides:
         for k, v in env_overrides.items():
             print(f"  Override: {k}={v}")
-    print(f"  Skip train: {args.skip_train}")
-    print(f"  Skip viz:   {args.skip_viz}")
+    print()
+    print(f"  Estimated time: ~{est_total // 60}m {est_total % 60}s")
+    for line in est_breakdown:
+        print(line)
     print("=" * 55)
 
     results = []
