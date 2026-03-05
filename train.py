@@ -1,3 +1,14 @@
+"""
+train.py — Main entry point. Ties everything together.
+
+Run this file to train a model end-to-end:
+  python train.py
+
+It reads settings from config.py, loads data, builds the model, trains it
+for the configured number of epochs, evaluates after each epoch, and saves
+the final trained weights to experiments/<model_name>.pt.
+"""
+
 import torch
 
 from config import DEVICE, EPOCHS, LEARNING_RATE, MODEL_NAME, EXPERIMENTS_DIR
