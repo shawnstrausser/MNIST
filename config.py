@@ -12,6 +12,7 @@ Key settings:
   - DEVICE:         "cpu" or "cuda" (GPU) — where the math runs
 """
 
+import os
 from pathlib import Path
 
 # Paths
@@ -19,11 +20,11 @@ PROJECT_ROOT = Path(__file__).parent
 DATA_DIR = PROJECT_ROOT / "data"
 EXPERIMENTS_DIR = PROJECT_ROOT / "experiments"
 
-# Training
+# Training (env vars override for run_all.py pipeline)
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
-EPOCHS = 5
+EPOCHS = int(os.environ.get("MNIST_EPOCHS", 5))
 DEVICE = "cpu"  # switch to "cuda" if GPU available
 
 # Model
-MODEL_NAME = "simple_fc"  # options: "simple_fc", "cnn"
+MODEL_NAME = os.environ.get("MNIST_MODEL", "simple_fc")  # options: "simple_fc", "cnn"
