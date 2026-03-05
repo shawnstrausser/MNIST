@@ -44,7 +44,7 @@ def train_one_epoch(model, train_loader, optimizer, device):
         pct = batch_idx / num_batches
         bar_len = 30
         filled = int(bar_len * pct)
-        bar = "█" * filled + "░" * (bar_len - filled)
+        bar = "#" * filled + "-" * (bar_len - filled)
         acc_so_far = correct / total
         sys.stdout.write(f"\r  Training: [{bar}] {pct:>6.1%}  loss={loss.item():.4f}  acc={acc_so_far:.4f}")
         sys.stdout.flush()
