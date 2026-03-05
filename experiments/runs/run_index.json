@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {
+      "id": "2026-03-05_13-01_simple_fc",
+      "model": "simple_fc",
+      "accuracy": 0.9597,
+      "f1_macro": 0.959359811237853,
+      "epochs": 1,
+      "timestamp": "2026-03-05T13:01:19.572100",
+      "git_commit": "bff57d0",
+      "path": "C:\\Users\\shawn\\Desktop\\MNIST\\experiments\\runs\\2026-03-05_13-01_simple_fc"
+    }
+  ]
+}
