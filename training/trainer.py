@@ -13,6 +13,7 @@ Returns:
   (avg_loss, accuracy) for the epoch — so we can watch the model improve.
 """
 
+import sys
 import torch
 import torch.nn as nn
 
@@ -24,8 +25,9 @@ def train_one_epoch(model, train_loader, optimizer, device):
     total_loss = 0
     correct = 0
     total = 0
+    num_batches = len(train_loader)
 
-    for images, labels in train_loader:
+    for batch_idx, (images, labels) in enumerate(train_loader, 1):
         images, labels = images.to(device), labels.to(device)
 
         optimizer.zero_grad()       # reset gradients from last batch
@@ -38,4 +40,14 @@ def train_one_epoch(model, train_loader, optimizer, device):
         correct += (outputs.argmax(1) == labels).sum().item()
         total += images.size(0)
 
+        # Progress bar
+        pct = batch_idx / num_batches
+        bar_len = 30
+        filled = int(bar_len * pct)
+        bar = "█" * filled + "░" * (bar_len - filled)
+        acc_so_far = correct / total
+        sys.stdout.write(f"\r  Training: [{bar}] {pct:>6.1%}  loss={loss.item():.4f}  acc={acc_so_far:.4f}")
+        sys.stdout.flush()
+
+    print()  # newline after progress bar completes
     return total_loss / total, correct / total

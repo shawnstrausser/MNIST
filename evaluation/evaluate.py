@@ -12,11 +12,13 @@ Returns two numbers:
   - accuracy: What percentage of digits it guessed correctly (higher is better)
 """
 
+import sys
+
 import torch
 import torch.nn as nn
 
 
-def evaluate(model, test_loader, device):
+def evaluate(model, test_loader, device, show_progress=False):
     """
     Run the model on test data and measure its performance.
 
@@ -43,8 +45,10 @@ def evaluate(model, test_loader, device):
 
     # torch.no_grad() tells PyTorch: "don't bother tracking how to improve —
     # we're just measuring, not learning." This saves memory and speeds things up.
+    num_batches = len(test_loader)
+
     with torch.no_grad():
-        for images, labels in test_loader:
+        for batch_idx, (images, labels) in enumerate(test_loader, 1):
             # Move this batch to the right device (cpu or gpu)
             images, labels = images.to(device), labels.to(device)
 
@@ -58,6 +62,18 @@ def evaluate(model, test_loader, device):
             total_loss += loss.item() * images.size(0)
             correct += (outputs.argmax(1) == labels).sum().item()
             total += images.size(0)
+
+            if show_progress:
+                pct = batch_idx / num_batches
+                bar_len = 30
+                filled = int(bar_len * pct)
+                bar = "█" * filled + "░" * (bar_len - filled)
+                acc_so_far = correct / total
+                sys.stdout.write(f"\r  Eval:     [{bar}] {pct:>6.1%}  loss={loss.item():.4f}  acc={acc_so_far:.4f}")
+                sys.stdout.flush()
+
+    if show_progress:
+        print()
 
     # Return averages: total error per image, and fraction correct
     return total_loss / total, correct / total
