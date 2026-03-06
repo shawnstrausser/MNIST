@@ -104,6 +104,10 @@ def run_eval_only(model_name: str, env_overrides: dict[str, str], quiet: bool) -
 
 
 def main() -> None:
+    # CLI arg parsing: defines 7 flags that customize the pipeline on the fly.
+    # --model/--epochs override config.py defaults (default=None means "use config").
+    # The 5 boolean flags (action="store_true") default to False, become True when passed.
+    # args = parser.parse_args() reads the command line and stores all values in args.
     parser = argparse.ArgumentParser(description="Run the full MNIST pipeline")
     parser.add_argument("--model", default=None, help="Model name (overrides config.py)")
     parser.add_argument("--epochs", default=None, type=int, help="Number of epochs (overrides config.py, must be >= 1)")
@@ -114,7 +118,7 @@ def main() -> None:
     parser.add_argument("--eval-only", action="store_true", help="Evaluate existing model, no training or viz")
     args = parser.parse_args()
 
-    # Validate
+    # ensure epochs >= 1
     if args.epochs is not None and args.epochs < 1:
         print(f"  Error: --epochs must be >= 1, got {args.epochs}")
         sys.exit(1)
