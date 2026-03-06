@@ -6,13 +6,14 @@
 #   make quick       Smoke test: 1 epoch, fast feedback
 #   make viz         Visualize existing model (skip training)
 #   make all         Full pipeline: train + visualize
-#   make eval        Run detailed evaluation only
+#   make eval        Evaluate existing model (no training)
+#   make dry-run     Show pipeline plan without running
 #   make clean       Remove __pycache__ dirs
 #   make help        Show this help
 
 PYTHON_PATH = /c/Users/shawn/miniconda3/envs/MachineLearning/python.exe
 
-.PHONY: train cnn quick viz all eval clean help
+.PHONY: train cnn quick viz all eval dry-run clean help
 
 help:
 	@echo "MNIST Pipeline Shortcuts"
@@ -22,7 +23,8 @@ help:
 	@echo "  make quick   Smoke test (1 epoch)"
 	@echo "  make viz     Visualize only (skip training)"
 	@echo "  make all     Full pipeline (train + viz)"
-	@echo "  make eval    Detailed evaluation only"
+	@echo "  make eval    Evaluate existing model (no training)"
+	@echo "  make dry-run Show plan without running"
 	@echo "  make clean   Remove __pycache__ dirs"
 
 train:
@@ -41,7 +43,10 @@ all:
 	$(PYTHON_PATH) run_all.py
 
 eval:
-	$(PYTHON_PATH) run_all.py --skip-viz
+	$(PYTHON_PATH) run_all.py --eval-only
+
+dry-run:
+	$(PYTHON_PATH) run_all.py --dry-run
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; true
