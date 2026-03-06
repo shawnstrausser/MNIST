@@ -23,9 +23,15 @@ MNIST/
     evaluate.py          — Test loop: measure accuracy on unseen data
     visualize.py         — Confusion matrix + sample prediction visualizations (seaborn)
   experiments/           — Saved outputs: model weights (.pt), metadata (.json), charts (.png)
+    runs/                — Timestamped run directories (one per training run)
+    runs/run_index.json  — Master index of all runs (newest first)
   utils/
     data.py              — Data loading + image transforms
-    output_log.py        — Structured run logging (appends to output.log)
+    output_log.py        — Structured run logging (prepends to output.log)
+    system_info.py       — Hardware/OS context for reproducibility
+  evaluation/
+    metrics.py           — 26-metric evaluation suite (F1, AUC-ROC, MCC, per-class, etc.)
+  Makefile               — One-word shortcuts: make train, make cnn, make quick, etc.
   docs/
     train.md             — Deep dive: what happens when you run train.py
     evaluate.md          — Deep dive: what happens when you run evaluate.py
@@ -49,6 +55,21 @@ python -m evaluation.evaluate --model cnn
 # Generate visualizations (confusion matrix + sample predictions)
 python -m evaluation.visualize             # uses default model from config
 python -m evaluation.visualize --model cnn # specify model
+```
+
+## Makefile Shortcuts
+
+If you have GNU Make installed, you can use one-word commands instead:
+
+```bash
+make train       # Train with config.py defaults (simple_fc, 5 epochs)
+make cnn         # Train CNN model
+make quick       # Smoke test: 1 epoch, fast feedback
+make viz         # Visualize existing model (skip training)
+make eval        # Run detailed evaluation only
+make all         # Full pipeline: train + visualize
+make clean       # Remove __pycache__ dirs
+make help        # Show available commands
 ```
 
 ## Expected Output
@@ -307,4 +328,24 @@ How it works:
 
 Every time train.py, evaluate, or visualize runs, it appends a structured entry to `output.log` in the project root. Each entry includes a timestamp, the command that ran, success/error status, and a summary of key metrics. This gives you a single file to check what happened, when, and whether it worked.
 
-The log is append-only — newest entries at the bottom. Added to `.gitignore` so each machine has its own local log.
+The log prepends new entries — newest at the top. Added to `.gitignore` so each machine has its own local log.
+
+### evaluation/metrics.py — The Full Report Card
+
+After training, accuracy alone doesn't tell the whole story. This module computes 26 metrics from the model's predictions and softmax probabilities:
+
+- **Summary metrics:** Precision, Recall, F1 (macro), MCC, Cohen's Kappa, balanced accuracy, log loss, AUC-ROC, AUC-PR, top-2 accuracy
+- **Per-class breakdown:** Per-digit accuracy, precision, recall, specificity, F1, TP/FP/FN/TN, support
+- **Confusion pairs:** The top 5 digit pairs the model confuses most often
+
+All metrics are saved into the metadata JSON and printed to terminal after training.
+
+### utils/system_info.py — Hardware Context
+
+Captures the hardware and software environment for every training run: Python version, PyTorch version, OS, CPU, core count, RAM, and GPU/CUDA info. Saved into the metadata JSON so you can always answer "what machine produced these results?"
+
+### Run Tracking (experiments/runs/)
+
+Every training run gets its own timestamped directory under `experiments/runs/` (e.g., `runs/20260305_110000_simple_fc/`). Each run directory contains copies of the model weights, metadata JSON, and training curves PNG.
+
+A master index at `experiments/runs/run_index.json` tracks all runs (newest first) with quick-reference fields: timestamp, model name, epochs, accuracy, and F1 score. This lets you compare runs without opening individual files.

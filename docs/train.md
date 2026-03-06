@@ -107,6 +107,20 @@ Uses seaborn for clean styling. If seaborn isn't installed, this step is skipped
 
 A structured entry is appended to `output.log` in the project root with the timestamp, config, final metrics, and per-epoch breakdown. On error, the full traceback is logged instead.
 
+### 12. Detailed metrics get computed
+
+After training finishes, `evaluate_detailed()` runs the test set one more time, collecting softmax probabilities for every sample. These are fed into `metrics.py` which computes 26 metrics: precision, recall, F1 (macro), MCC, Cohen's Kappa, balanced accuracy, log loss, AUC-ROC, AUC-PR, top-2 accuracy, per-class breakdowns (TP/FP/FN/TN, specificity), and the top 5 most confused digit pairs.
+
+A detailed metrics report is printed to the terminal, and all metrics are saved into the metadata JSON.
+
+### 13. System info gets captured
+
+`system_info.py` collects the hardware/software context: Python version, PyTorch version, OS, CPU model, core count, RAM, and GPU/CUDA info. This is printed to the terminal and saved into the metadata JSON for reproducibility.
+
+### 14. Run gets tracked
+
+The training run is saved to a timestamped directory under `experiments/runs/` (e.g., `runs/20260305_110000_simple_fc/`) containing copies of the model weights, metadata, and training curves. The master index at `experiments/runs/run_index.json` is updated with a summary entry (timestamp, model, epochs, accuracy, F1) so you can compare runs at a glance.
+
 ## Outputs
 
 After training completes, these files are saved/updated:
@@ -114,9 +128,11 @@ After training completes, these files are saved/updated:
 | File | Contents |
 |------|----------|
 | `experiments/simple_fc.pt` | Trained model weights (430 KB) |
-| `experiments/simple_fc_metadata.json` | Training metadata (config, timing, per-epoch stats) |
+| `experiments/simple_fc_metadata.json` | Training metadata (config, timing, per-epoch stats, 26 metrics, system info) |
 | `experiments/simple_fc_training_curves.png` | Loss + accuracy curves (side-by-side) |
-| `output.log` | Append-only run log with timestamps and metrics |
+| `experiments/runs/<timestamp>_simple_fc/` | Timestamped run directory (weights, metadata, curves) |
+| `experiments/runs/run_index.json` | Master index of all runs (newest first) |
+| `output.log` | Run log with timestamps and metrics (newest at top) |
 
 ## Total Time
 
