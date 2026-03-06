@@ -14,6 +14,7 @@ Each step prints a status line so you can see progress at a glance.
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -49,14 +50,18 @@ def estimate_pipeline_time(model_name, epochs, skip_train, skip_viz):
     return total, breakdown
 
 
-def run_step(name, cmd):
+def run_step(name, cmd, env_overrides=None):
     """Run a subprocess, stream output, return (success, elapsed_sec)."""
     print(f"\n{'=' * 55}")
     print(f"  [{name}] Starting...")
     print(f"{'=' * 55}\n")
 
+    env = None
+    if env_overrides:
+        env = {**os.environ, **env_overrides}
+
     start = time.time()
-    result = subprocess.run(cmd, shell=False)
+    result = subprocess.run(cmd, shell=False, env=env)
     elapsed = time.time() - start
 
     status = "OK" if result.returncode == 0 else "FAILED"
@@ -80,7 +85,6 @@ def main():
         env_overrides["MNIST_EPOCHS"] = str(args.epochs)
 
     # Resolve model/epochs for estimate (respect env overrides)
-    import os
     model_name = args.model or os.environ.get("MNIST_MODEL", "simple_fc")
     epochs = args.epochs or int(os.environ.get("MNIST_EPOCHS", 5))
 
@@ -110,7 +114,7 @@ def main():
     # Step 1: Train
     if not args.skip_train:
         cmd = [sys.executable, "train.py"]
-        ok, elapsed = run_step("Train", cmd)
+        ok, elapsed = run_step("Train", cmd, env_overrides)
         results.append(("Train", ok, elapsed))
         if not ok:
             print("\n  Training failed — stopping pipeline.")
@@ -124,7 +128,7 @@ def main():
         cmd = [sys.executable, "-m", "evaluation.visualize"]
         if args.model:
             cmd += ["--model", args.model]
-        ok, elapsed = run_step("Visualize", cmd)
+        ok, elapsed = run_step("Visualize", cmd, env_overrides)
         results.append(("Visualize", ok, elapsed))
     else:
         print("\n  [Visualize] SKIPPED")
