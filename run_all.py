@@ -32,7 +32,27 @@ VIZ_TIME_ESTIMATE = 10  # seconds
 
 
 def estimate_pipeline_time(model_name: str, epochs: int, skip_train: bool, skip_viz: bool) -> tuple[int, list[str]]:
-    """Estimate total pipeline time based on past benchmarks."""
+    """Estimate how long the pipeline will take before it runs.
+
+    Uses EPOCH_TIME_ESTIMATES and VIZ_TIME_ESTIMATE (hardcoded benchmarks from
+    previous runs on this machine) to predict total wall-clock time. Called once
+    in main() to display the time estimate in the plan banner.
+
+    Args:
+        model_name: Which model is being trained (e.g. "simple_fc", "cnn").
+                    Used to look up per-epoch time in EPOCH_TIME_ESTIMATES.
+                    Falls back to 60s/epoch if the model name isn't recognized.
+        epochs:     Number of training epochs. Multiplied by per-epoch estimate.
+        skip_train: If True, training time is excluded and shows "SKIPPED".
+        skip_viz:   If True, visualization time is excluded and shows "SKIPPED".
+
+    Returns:
+        (total, breakdown) where:
+          - total: Estimated seconds for the entire pipeline (int).
+          - breakdown: List of formatted strings for display, one per step.
+                       Example: ["    Train:     ~3m 0s  (5 epochs x ~36s/epoch)",
+                                 "    Visualize: ~10s"]
+    """
     total = 0
     breakdown = []
 
@@ -54,7 +74,48 @@ def estimate_pipeline_time(model_name: str, epochs: int, skip_train: bool, skip_
 
 
 def run_step(name: str, cmd: list[str], env_overrides: dict[str, str] | None = None, quiet: bool = False) -> tuple[bool, float]:
-    """Run a subprocess, stream output, return (success, elapsed_sec)."""
+    """Run a pipeline step as a subprocess and report its result.
+
+    Called twice in main(): once for "Train" and once for "Visualize".
+
+    Args:
+        name: Human-readable label for the step (e.g. "Train", "Visualize").
+              Only used for printing status banners — doesn't affect behavior.
+        cmd:  The command to run as a subprocess, as a list of strings.
+              Example: [sys.executable, "train.py"] -> python train.py.
+              List format (not a single string) because shell=False.
+        env_overrides: Extra environment variables to inject into the subprocess.
+                       Example: {"MNIST_EPOCHS": "3", "MNIST_MODEL": "cnn"}.
+                       Merges with os.environ so the subprocess inherits everything
+                       plus these overrides. None = use normal environment as-is.
+        quiet: When True, suppresses the === status banners. The subprocess
+               itself still prints its own output.
+
+    Returns:
+        (success, elapsed) where:
+          - success: True if subprocess exited with code 0, False otherwise.
+          - elapsed: Wall-clock seconds the subprocess took to run.
+
+    Example:
+        # Train a CNN model for 3 epochs (quiet=False so banners print):
+        ok, elapsed = run_step(
+            name="Train",
+            cmd=[sys.executable, "train.py"],
+            env_overrides={"MNIST_MODEL": "cnn", "MNIST_EPOCHS": "3"},
+            quiet=False,
+        )
+        # Prints:
+        #   =======================================================
+        #     [Train] Starting...
+        #   =======================================================
+        #   ... (train.py output streams here) ...
+        #     [Train] OK (142.5s)
+        #
+        # ok = True, elapsed = 142.5
+        #
+        # If train.py crashes (non-zero exit code):
+        # ok = False, elapsed = however long it ran before failing
+    """
     if not quiet:
         print(f"\n{'=' * 55}")
         print(f"  [{name}] Starting...")
@@ -75,7 +136,27 @@ def run_step(name: str, cmd: list[str], env_overrides: dict[str, str] | None = N
 
 
 def run_eval_only(model_name: str, env_overrides: dict[str, str], quiet: bool) -> None:
-    """Run evaluation on an existing trained model without training or visualization."""
+    """Evaluate an existing trained model without training or visualization.
+
+    Triggered by --eval-only flag. Loads saved weights from experiments/<model>.pt,
+    runs the test set through the model, and prints a full metrics report (accuracy,
+    precision, recall, F1, etc.). Exits the process after — this is a terminal action.
+
+    The evaluation runs as an inline Python subprocess (python -c "...") rather than
+    calling a separate script. This keeps eval self-contained in run_all.py.
+
+    Args:
+        model_name:    Which model to evaluate (e.g. "simple_fc", "cnn").
+                       Must have a matching .pt weights file in experiments/.
+        env_overrides: Environment variable overrides, same as run_step.
+                       Merged with os.environ for the subprocess.
+        quiet:         Currently unused — the function always prints status.
+                       Included for consistency with run_step's interface.
+
+    Returns:
+        None. Calls sys.exit(1) if evaluation fails; otherwise returns normally
+        (and main() calls sys.exit(0) right after).
+    """
     print(f"\n  [Eval-Only] Evaluating model: {model_name}")
     cmd = [sys.executable, "-c", (
         "from config import DEVICE, EXPERIMENTS_DIR;"
@@ -104,6 +185,15 @@ def run_eval_only(model_name: str, env_overrides: dict[str, str], quiet: bool) -
 
 
 def main() -> None:
+    """Entry point for the MNIST pipeline. Parses CLI args and orchestrates all steps.
+
+    Flow: parse args -> validate -> build env overrides -> estimate time ->
+    show plan -> handle early exits (dry-run, eval-only, skip-all) ->
+    run Train -> run Visualize -> print summary.
+
+    Takes no args (reads from sys.argv via argparse) and returns nothing
+    (uses sys.exit for non-zero exits).
+    """
     # CLI arg parsing: defines 7 flags that customize the pipeline on the fly.
     # --model/--epochs override config.py defaults (default=None means "use config").
     # The 5 boolean flags (action="store_true") default to False, become True when passed.
@@ -202,7 +292,30 @@ def main() -> None:
 
 
 def print_summary(results: list[tuple[str, bool, float]], total_time: float) -> None:
-    """Print a final pipeline summary."""
+    """Print the final pipeline summary table after all steps finish.
+
+    Called at the end of main() (and also mid-pipeline if training fails).
+    Shows each step's pass/fail status and timing, plus total elapsed time.
+
+    Example output:
+        =======================================================
+          Pipeline Complete — 52.3s total
+        =======================================================
+            Train           OK       (46.7s)
+            Visualize       OK       (5.6s)
+        =======================================================
+
+          All steps passed!
+
+    Args:
+        results:    List of (name, success, elapsed) tuples — one per step that ran.
+                    Collected in main() as each run_step() call returns.
+                    Example: [("Train", True, 46.7), ("Visualize", True, 5.6)]
+        total_time: Wall-clock seconds for the entire pipeline, measured in main().
+
+    Returns:
+        None. Prints to stdout only.
+    """
     print(f"\n{'=' * 55}")
     print(f"  Pipeline Complete — {total_time:.1f}s total")
     print(f"{'=' * 55}")
