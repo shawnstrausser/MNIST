@@ -1,6 +1,16 @@
 {
   "runs": [
     {
+      "id": "2026-03-05_18-05_simple_fc",
+      "model": "simple_fc",
+      "accuracy": 0.9728,
+      "f1_macro": 0.9724831770453006,
+      "epochs": 5,
+      "timestamp": "2026-03-05T18:05:25.709196",
+      "git_commit": "155521b",
+      "path": "C:\\Users\\shawn\\Desktop\\MNIST\\experiments\\runs\\2026-03-05_18-05_simple_fc"
+    },
+    {
       "id": "2026-03-05_16-36_simple_fc",
       "model": "simple_fc",
       "accuracy": 0.9763,
