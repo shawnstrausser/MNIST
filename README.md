@@ -12,6 +12,7 @@ You have images of handwritten digits. This project trains a neural network to l
 MNIST/
   config.py              — Control panel: batch size, learning rate, epochs, model selection
   train.py               — Main entry point — ties everything together
+  run_all.py             — Pipeline orchestrator: train + visualize in one shot
   data/MNIST/raw/        — Raw MNIST data files (60k train + 10k test images)
   models/
     simple_fc.py         — Simple 3-layer feedforward network (784 → 128 → 64 → 10)
@@ -22,6 +23,7 @@ MNIST/
   evaluation/
     evaluate.py          — Test loop: measure accuracy on unseen data
     visualize.py         — Confusion matrix + sample prediction visualizations (seaborn)
+    metrics.py           — 26-metric evaluation suite (F1, AUC-ROC, MCC, per-class, etc.)
   experiments/           — Saved outputs: model weights (.pt), metadata (.json), charts (.png)
     runs/                — Timestamped run directories (one per training run)
     runs/run_index.json  — Master index of all runs (newest first)
@@ -29,13 +31,14 @@ MNIST/
     data.py              — Data loading + image transforms
     output_log.py        — Structured run logging (prepends to output.log)
     system_info.py       — Hardware/OS context for reproducibility
-  evaluation/
-    metrics.py           — 26-metric evaluation suite (F1, AUC-ROC, MCC, per-class, etc.)
   Makefile               — One-word shortcuts: make train, make cnn, make quick, etc.
   docs/
     train.md             — Deep dive: what happens when you run train.py
     evaluate.md          — Deep dive: what happens when you run evaluate.py
     visualize.md         — Deep dive: what happens when you run visualize.py
+    pipeline.md          — Architecture reference: entry points, data flow, output artifacts
+    task_reports/        — Task planning reports (one per task)
+    output_reports/      — Task completion reports (findings + fixes)
 ```
 
 ## How to Run
@@ -44,17 +47,19 @@ MNIST/
 # Install dependencies
 pip install torch torchvision seaborn scikit-learn
 
-# Train the model
+# Run the full pipeline (train + visualize)
 cd Desktop/MNIST
-python train.py
+python run_all.py                    # train + visualize with config defaults
+python run_all.py --model cnn        # use CNN model
+python run_all.py --epochs 10        # override epoch count
+python run_all.py --dry-run          # show plan without running
+python run_all.py --quiet            # minimal output
+python run_all.py --eval-only        # evaluate existing model only
 
-# Test accuracy without retraining
-python -m evaluation.evaluate
-python -m evaluation.evaluate --model cnn
-
-# Generate visualizations (confusion matrix + sample predictions)
-python -m evaluation.visualize             # uses default model from config
-python -m evaluation.visualize --model cnn # specify model
+# Or run individual scripts directly
+python train.py                      # train only
+python -m evaluation.evaluate        # test accuracy without retraining
+python -m evaluation.visualize       # generate confusion matrix + sample predictions
 ```
 
 ## Makefile Shortcuts
@@ -66,7 +71,8 @@ make train       # Train with config.py defaults (simple_fc, 5 epochs)
 make cnn         # Train CNN model
 make quick       # Smoke test: 1 epoch, fast feedback
 make viz         # Visualize existing model (skip training)
-make eval        # Run detailed evaluation only
+make eval        # Evaluate existing model (no training)
+make dry-run     # Show pipeline plan without running
 make all         # Full pipeline: train + visualize
 make clean       # Remove __pycache__ dirs
 make help        # Show available commands
@@ -100,7 +106,13 @@ Model saved to experiments/simple_fc.pt
 
 Metadata saved to experiments/simple_fc_metadata.json
 Training curves saved to experiments/simple_fc_training_curves.png
+Run saved to experiments/runs/20260305_110000_simple_fc/
 Run logged to output.log
+
+  === Metrics Report ===
+  Accuracy: 0.9752 | F1 (macro): 0.9750 | MCC: 0.9724
+  AUC-ROC: 0.9993 | Log Loss: 0.0891
+  Top confused pairs: (4,9), (3,5), (7,2)
 ```
 
 - **Loss** goes down each epoch (model is making fewer mistakes)
@@ -108,7 +120,9 @@ Run logged to output.log
 - Final test accuracy ~97% for the simple FC model, ~99% for the CNN
 - **Architecture diagram** prints to terminal after training
 - **Training curves** (loss + accuracy side-by-side) saved as PNG
-- **Run log** appended to `output.log` with timestamps, config, and results
+- **Metrics report** — 26 metrics including F1, MCC, AUC-ROC, per-class breakdown, and top confusion pairs
+- **Run tracking** — each run saved to a timestamped directory under `experiments/runs/`
+- **Run log** prepended to `output.log` with timestamps, config, and results
 
 ## Key Concepts
 
@@ -174,10 +188,23 @@ Every runnable file imports constants from config.py. Here's who imports what, a
 
 ## Entry Points
 
-There are **3 entry points** you can run. Each one imports from config.py:
+There are **4 entry points** you can run. Each one imports from config.py:
 
 ```
-1. python train.py                          (THE MAIN WORKFLOW)
+1. python run_all.py                        (THE RECOMMENDED WAY)
+            │
+            ├─ Pipeline orchestrator: runs train + visualize in sequence
+            ├─ Accepts CLI flags: --model, --epochs, --skip-train, --skip-viz
+            ├─ Also supports: --dry-run, --quiet, --eval-only
+            │
+            ├─ Default: trains model, then generates visualizations
+            ├─ --dry-run: shows plan (model, epochs, time estimate) then exits
+            ├─ --eval-only: evaluates existing model without training
+            │
+            └─ Output: delegates to train.py and visualize.py
+
+
+2. python train.py                          (TRAIN ONLY)
             │
             ├─ Imports: DEVICE, EPOCHS, LEARNING_RATE, MODEL_NAME, EXPERIMENTS_DIR, BATCH_SIZE
             ├─ data.py downloads/loads MNIST images
@@ -197,7 +224,7 @@ There are **3 entry points** you can run. Each one imports from config.py:
             └─ Appends run to output.log
 
 
-2. python -m evaluation.evaluate            (TEST ONLY — no training)
+3. python -m evaluation.evaluate            (TEST ONLY — no training)
             │
             ├─ Imports: DEVICE, MODEL_NAME, EXPERIMENTS_DIR
             ├─ Loads trained model from experiments/*.pt
@@ -206,7 +233,7 @@ There are **3 entry points** you can run. Each one imports from config.py:
             └─ Output: prints loss + accuracy to terminal
 
 
-3. python -m evaluation.visualize           (VISUALIZE — no training)
+4. python -m evaluation.visualize           (VISUALIZE — no training)
             │
             ├─ Imports: DEVICE, MODEL_NAME, EXPERIMENTS_DIR
             ├─ Accepts --model flag to override config
@@ -229,6 +256,21 @@ Key settings:
 - `EPOCHS = 5` — How many full passes through the training data
 - `MODEL_NAME = "simple_fc"` — Which neural network architecture to use (options: `"simple_fc"`, `"cnn"`)
 - `DEVICE = "cpu"` — Where the math runs (`"cpu"` or `"cuda"` for GPU)
+
+### run_all.py — The Pipeline Orchestrator
+
+The recommended way to run the project. Calls `train.py` and `visualize.py` in sequence as subprocesses, with time estimates and a summary at the end.
+
+CLI flags:
+- `--model cnn` — Override the model architecture
+- `--epochs 10` — Override epoch count
+- `--skip-train` — Skip training, run visualization only
+- `--skip-viz` — Skip visualization, train only
+- `--dry-run` — Print the plan (model, epochs, estimated time) and exit
+- `--quiet` — Minimal output (results only, no banners)
+- `--eval-only` — Evaluate an existing trained model without training or visualization
+
+Overrides are passed to subprocesses via environment variables (`MNIST_MODEL`, `MNIST_EPOCHS`), so `config.py` defaults are respected unless explicitly overridden.
 
 ### utils/data.py — Data Loading
 
